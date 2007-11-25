@@ -1,0 +1,1037 @@
+NAME
+    Devel::sdb - Smart Debugger
+
+SYNOPSIS
+    perl -d:sdb myscript.pl
+
+DESCRIPTION
+    "Devel::sdb" is an enhanced version of Perl's (v5.8.8) powerful
+    interactive debugger. The GUI version "ptkdb" does a very good job
+    already. However, smart debugger takes different approach to problem
+    solving and focuses on non GUI situations. Some of the features added to
+    this version are data rendering, flexible breakpoints, zoompoints,
+    custom mode for debugging fork process and syntax highlighting.
+
+FEATURES
+     a. Data rendering.
+     b. Code window/markers
+     c. Flexible breakpoints.
+     d. Zoom points for bookmarks/line regex.
+     e. Debugging boundaries.
+     f. Custom mode for debugging forked process.
+     g. Syntax highlight
+     h. Debug preferences for instant debugging.
+
+USAGE
+    Usage 1.
+
+        perl -d:sdb  myscript.pl
+
+    Usage 2.
+
+        setenv SDB_BPTS "new init"  
+        perl -d:sdb  myscript.pl
+
+    Usage 3.
+
+        setenv SDB_PREF "$HOME/.sdb/pref.conf"
+        perl -d:sdb  myscript.pl
+
+COMMANDS
+     # CODE 
+     set c[aller] set caller segment      
+     set noc[aller] unset caller segment
+     set p[ad]  set padding code        
+     set nop[ad] unset padding code
+     set q[uick] set quick exit 
+     set noq[uick] unset quick exit
+     set cw[size] -pre,post set code window size
+
+     # DATA
+     set dr[ender]  set data render         
+     set nodr[ender] unset datarender
+     set dm[ode] 1[1-9] datadumper,depth  
+     set dm[ode] 2[1-9] dumpvar,depth
+
+     # BREAKPOINT
+     set b[reakpoint] expr set sdb style breakpoints
+     set b[reakpoint] compile expr set sdb style "b compile"
+     set b[reakpoint] postpone expr set sdb style "b postpone"
+     set b[reakpoint] load expr set sdb style "b load"
+     list b[reakpoint] display the recent sdb style breakpoint
+     list p[references] display the preferences initialised
+
+     # ZOOMPOINT
+     set zw[size] -pre,post set zoom window size
+     z /pattern - zoom to pattern with zwindow
+     z - zoom next
+
+     # ENTER MAP (by default enter mapped to 's')
+     set j[ump] set enter key map to 'c' 
+     set n[ext] set enter key map to 'n'
+     set s[ingle] set enter key map to 's'
+     set z[oom] set enter key map to 'z'
+
+PREFERENCES (DEFAULT)
+      Default preferences when SDB_CONF is unset.
+
+        $config = {
+        'code'   =>  {            # Code
+          'window'  => '-8,20',   # c.1
+          'zwindow' => '-1,0',    # c.2
+          'caller'   => '0',      # c.3
+          'comments' => '1',      # c.4
+          'warnings' => '1',      # c.5
+          'padcode'  => '1',      # c.6
+          'quickexit'=> '1',      # c.7
+         },
+        'data'   =>  {            # Data
+          'render'   => '1',      # d.1
+          'subexp'   => '1',      # d.2
+          'mode'     => '10',     # d.3
+          'skip'     => [ '$_', '@_', '$self' ], # d.4
+         },
+        'breakpt'    =>  {        # Breakpoints
+          'b'         => [ '', ], # b.1
+          'b_load'    => [ '', ], # b.2
+          'b_compile' => [ '', ], # b.3
+          'b_postpone'=> [ '', ], # b.4
+         },
+        'boundary'   =>  {        # Boundary
+          'show'     =>  {        # Show
+           'files'   =>  [ '', ], # bs.1
+           'packs'   =>  [ '', ], # bs.2
+           'subs'    =>  [ '', ], # bs.3
+          },
+          'skip'     =>  {        # Skip
+           'files'   =>  [ '', ], # bs.3
+           'packs'   =>  [ '', ], # bs.4
+           'subs'    =>  [ '', ], # bs.5
+           },
+         },
+        'forktty' => {            # Fork
+          'mode'     => 0,        # f.1
+          'tmpdir'   => "$ENV{HOME}/.sdb/fork/", # f.2
+         },
+        'syntax' =>  {            # Syntax
+          'mode'     => 0,        # s.1
+          'tmpdir'   => "$ENV{HOME}/.sdb/syntax/",  # s.2
+          'command'  => 'cat %f',
+         },
+        };
+
+ENVIRONMENT
+     SDB_BPTS "new init"
+     SDB_PREF "$HOME/.sdb/pref.conf'
+
+INSIGHT
+Smart Debugger?
+    No program runs at the first time. So we need to debug !!
+
+    Nobodys' code is easy to understand by others. So we need help !!
+
+    What tools we have to solve these universal problems? Debugger. Yes. We
+    use debuggers, because it works out of the box, so that no changes
+    required in the code. but due to complexity in the usage, most people
+    migrated to use "print" statements as a debugging mechanism.
+
+    So, how to fix the debugger? Most debuggers come with powerful features,
+    but you don't want to use all most of the time. More importantly, a
+    debugger should seem free handed, as though you only need the enter key.
+    Let the debugger render the data, code flow, code markers, caller to
+    give more insight to the code, data and code flow. Our actions should
+    only be to observe and understand. Also, we should be able use the all
+    of the features, only when there is uncertanity.
+
+    Smart debugger takes a closer look at the very purpose of debugging and
+    focussed on simple usage. It unleashes the debugger's potential to do
+    smart things. Smart debugger is more than debugger, it's a code walk
+    through tool. It emphasize the concepts on data rendering and
+    zoompoints, because it understands most common needs. So it provides
+    details proactively, to help you understand quickly.
+
+Want more insight to the data?
+    Ans. Data Rendering
+
+    Data is the primary element which determines code flow, and we use
+    debuggers to trace the same. Smart Debugger has a tiny lexical parser
+    that works on a single line. It renders automatically the "greedy"
+    variable, sub expressions and the values. Most GUI debuggers provide
+    data trace (not rendering), which allows you to see the stack of
+    variables, globals or show values on variable mouseovers. They don't,
+    however, render the execution context specfic data. An execution context
+    for code at any of time is a single execution line with lvalue and
+    rvalue and expressions in the same. So, rendering data for only what you
+    see in the execution line will give better insight to the data flow.
+
+     example code:
+     $foo = 0;
+     $bar = 3;
+
+     if($foo == 2 and $bar == 3) {
+      print "im good \n";
+     } else {
+      print "im bad \n";
+     }
+
+    Common Debugger:
+
+     a. hey, im currently here.
+      =>  if($foo == 2 & $bar == 3) {
+     b. user types keystrokes to go the next execution.
+     c. sometimes user types and check values in $foo, $bar
+     d. hey, im currently here
+      =>  print "im bad \n";
+
+    Smart Debugger:
+
+     -----( DATA )------
+     $bar is
+           3
+
+     $foo is
+           0
+
+     -----( CODE )------
+     t1.pl:.:1       $foo = 0;
+     t1.pl:.:2       $bar = 3;
+     t1.pl:.:3
+     t1.pl:.:4=>     if($foo == 2 and $bar == 3) {
+     t1.pl:.:5          print "im good \n";
+     t1.pl:.:6       } else {
+     t1.pl:.:7>>        print "im bad \n";
+     t1.pl:.:8       }
+     t1.pl:.:9
+
+     a. hey, i have seen this line "=>" (data line)
+     b. these are the variables i see in the line and their values.
+     c. currently i see perl has control into this line ">>" (control line)
+     d. take a look & proceed.
+
+    Now you know at first look. $foo is 0, and that's the reason it
+    traversed into the else block. This is the very purpose of debugger: to
+    provide the necessary details quickly.
+
+    The purpose of the code walk through tool is also the same. you will
+    understand the code by correlating data with code. In most cases you may
+    not need comments and logs to understand the code. Its just the data,
+    code and the correlation.
+
+  Data Segment
+     -----( DATA )------
+     $node->{left} is
+           {
+             'left' => {
+                         'value' => 'l',
+                         'weight' => 6
+                       },
+             'right' => {
+                          'value' => 'o',
+                          'weight' => 6
+                        },
+             'value' => 'lo',
+             'weight' => 12
+           }
+
+  Greedy Variable
+    A greedy variable is not a variable itself. It is a variable expression.
+    Smart debugger is greedy when looking for variable in the execution
+    line.
+
+     Example #1: Simple
+     ############################## SMART DEBUGGER ##############################
+     -----( DATA )------
+     $hash->[$one]{$two}{$three} is  (greedy variable)
+     $hash->[$one]{$two}{3} is       (sub expressions)
+     $hash->[$one]{2}{3} is          (sub expressions)
+     $hash->[1]{2}{3} is             (sub expressions)
+           5
+
+     -----( CODE )------
+     n6.pl:.:1   $one = 1;
+     n6.pl:.:2   $two = 2;
+     n6.pl:.:3   $three = 3;
+     n6.pl:.:4
+     n6.pl:.:5
+     n6.pl:.:6=> $hash->[$one]{$two}{$three} = 5;
+     n6.pl:.:7>> print ;
+     n6.pl:.:8
+
+     Example #2: Complex
+     ############################## SMART DEBUGGER ##############################
+     -----( DATA )------
+     @old{ @hash{ @{$prefix->[$one]}, 3 }} is
+     @old{ @hash{ @{$prefix->[1]}, 3 }} is
+     @old{ @hash{ @{ARRAY(0x8288c8c)}, 3 }} is
+     @old{ @hash{ 2 1, 3 }} is
+     @old{ 2 1 3} is
+           3,
+           4,
+           5
+
+     -----( CODE )------
+     n7.pl:.:1   use Data::Dumper;
+     n7.pl:.:2   @hash { 1, 2, 3 } = ( 1, 2, 3 );
+     n7.pl:.:3   $prefix = [ 1, [2, 1]];
+     n7.pl:.:4   $one = 1;
+     n7.pl:.:5=> @old { @hash { @{$prefix->[$one]}, 3 }} = (3,4,5);
+     n7.pl:.:6>> print;
+
+     Variables in this line are :
+       %old, %hash, $prefix, $one.
+
+     Greedy variable is
+       @old{ @hash{ @{ $prefix->[$one] }, 3 }}
+
+    Smart Debugger renders only the greedy variables, to give more meaning
+    to the context. It also handles the {}, [] contructs as a blackbox, to
+    avoid complexity and for faster processing.
+
+     Greedy:
+     @old{ @hash{ @{ $prefix->[$one] }, 3 }} is
+           1,
+           2,
+           3
+
+    Now, with this you will know the value of greedy variable. but still we
+    don't know the value of below.
+
+     $one
+     $prefix->[$one]
+     @{ $prefix->[$one] }
+     @hash { @{ $prefix->[$one] }, 3}
+
+     Sub Expressions Render:
+     @old{ @hash{ @{ $prefix->[$one] }, 3 }} is
+     @old{ @hash{ @{ $prefix->[1] }, 3 }} is
+     @old{ @hash{ @{ ARRAY(0x84782f0) }, 3 }} is
+     @old{ @hash{ 2 1, 3 }} is
+     @old{ 2 1 3} is
+           3,
+           4,
+           5
+
+    Sub expressions are used to render individual variables in a greedy
+    variable. Note that not all uncommon constructs render properly, but it
+    doesn't affect the value of greedy variable.
+
+    Note: Smart debugger tries to render the feasible expressions but it
+    cannot ensure the meaning of the construct. So, always check the greedy
+    variable and value.
+
+    you can turn on/off the sub expressions rendering using {data}{subexp}
+    in preferences.
+
+     Configuration 
+
+     preferences (static)
+        'data'   =>  {            # Data
+          'render'   => '1',      # d.1
+          'subexp'   => '1',      # d.2
+          'mode'     => '10',     # d.3
+          'skip'     =>  [ '', ], # d.4 
+         },
+
+     commands (dynamic)
+      set dr
+      set nodr
+      set dm 10 ( 1 is data dumper, 0 is infinite depth)
+      set dm 14 ( 1 id data dumper, 4 is depth)
+      set dm 20 ( 2 is dumpvar , 0 is infinite depth)
+      set dm 24 ( 2 is dumpvar , 4 is depth)
+
+Want more insight to the code?
+    Ans. Code window/markers
+
+    Code window is used to represent the current execution line and window
+    of lines around the execution line It enables a quick grasp of the
+    execution and also provides two markers: "=>" data line, ">>" control
+    line to indicate the code flow. Data rendering works on "=>" marked data
+    line.
+
+  Code window size?
+    Most of the GUI debuggers are emulated inside the editor. So, the
+    current execution line is represented by marking the line inside the
+    editor. This enables a quick grasp of where the executions are
+    happening. Where as the terminal debugger does not give that feel, but
+    provides simpler methods to achieve it. This version address the same to
+    bring the feel closer to GUI representation of code, so we are never
+    lost during the debugging process. It also features two markers "=>"
+    data line, ">>" control line which helps in most cases of conditional
+    looping to understand which was the last execution line, and where the
+    current executing line is.
+
+  Code markers?
+     Debugger Current "=>" is Perl's Last
+     Debugger Next    ">>" is Perl's Current
+     please DO NOT remember this mapping. 
+
+    Just remember that debugger is sitting between Perl's last exec and
+    current exec line. The debugger is always one step behind perl, but
+    knows what is coming down the pipeline. SDB debugger can deal with only
+    what Perl has already done, but it knows what Perl is currently doing.
+
+     lets give some name to the markers now.
+
+    "=>" data line - indicates the line "debugger" dealing currently.
+
+    ">>" control line - indicate the line "perl" dealing currently, (for
+    debugger, this is next)
+
+     example:
+
+     1.   $foo = 0;
+     2.   if($foo == 2) {
+     3.      print "im good \n";
+     4.     } else {
+     5.      print "im bad \n";
+     6.   }
+
+     a. perl. executed line 1, waiting in line 2.
+     b. debugger
+         line 1 is completed (lvalue accomplised) show the details for the same  "=>"
+         line 2 is coming to me next ( ">>" )
+
+     1.=> $foo = 0;
+     2.>> if($foo == 2) {
+     3.      print "im good \n";
+     4.     } else {
+     5.      print "im bad \n";
+     6.   }
+
+     c. perl. executed line 2, waiting in line 5.
+     d. debugger
+         line 2 is completed (lvalue accomplised) show the details for the same  "=>"
+         line 5 is coming to me next ( ">>" )
+
+     1.   $foo = 0;
+     2.=> if($foo == 2) {
+     3.      print "im good \n";
+     4.     } else {
+     5.>>    print "im bad \n";
+     6.   }
+
+    This is particularly useful for understanding the code flow. Since the
+    debugger is one step behind but knows what is coming next, it is easier
+    to represent the data and code markers to understand easily the change
+    in code flow.
+
+  Caller Segment
+     -----( CALLER )------
+     huffman-example:51:main::huff_hash
+     huffman:56:main::huff_hash_subtree
+
+  Code Segment (without padding)
+     -----( CODE )------
+           sub huff_hash_subtree {
+               my $node   = shift;
+               my $hash   = shift;
+               my $prefix = shift;
+ 
+     =>        if( $node->{left} ) {
+     >>            huff_hash_subtree( $node->{left}, $hash, [ @$prefix, 0 ] );
+                   huff_hash_subtree( $node->{right}, $hash, [ @$prefix, 1 ] );
+               } else {
+                   $hash->{$node->{value}} = $prefix;
+               }
+           }
+ 
+           sub huff_hash {
+               my $tree = shift;
+               my $hash = shift;
+               %$hash = ( );
+ 
+               huff_hash_subtree( $tree, $hash, [] );
+           }
+
+Do you want to breakpoints using regex?
+    Ans. Flexible breakpoints (SDB_BPTS)
+
+    The debugger provides breakpoints to get to a debugging area more
+    quickly. SDB provides flexible methods of setting breakpoints using
+    regex rather than fixed string. It matches the regex with the subroutine
+    lookup table and sets breakpoints to all matching subs. (Note: this
+    doesn't help if you are setting breakpoints where your subroutines are
+    being built dynamically, during runtime. You may still need to use basic
+    breakpoints to set the same, but now less frequently than with other
+    debuggers).
+
+     Configuration
+
+     environ
+     SDB_BPTS "new init DBI::select"
+
+     commands (dynamic)
+     S ( to list all subroutines)
+     set b new init (to set sdb style breakpoints)
+     list b (to list recently set sdb style breakpoints)
+
+     Note: SDB_BPTS overrides the {breakpt}{b} in preferences
+
+     preferences
+
+        'breakpt'    =>  {        # Breakpoints
+          'b'         => [ '', ], # b.1
+          'b_load'    => [ '', ], # b.2
+          'b_compile' => [ '', ], # b.3
+          'b_postpone'=> [ '', ], # b.4
+         },
+     # b.1 sdb style flexible breakpoints for subroutine
+     # b.2 sdb style flexible breakpoints for "b load"
+     # b.3 sdb style flexible breakpoints for "b compile"
+     # b.4 sdb style flexible breakpoints for "b postpone"
+
+Getting bored with breakpoints?
+    Ans. Zoompoints
+
+    Breakpoints work on subroutine names and line numbers. Zoompoints work
+    on regex matched lines and surrounding lines (bookmarks). This is an
+    extremely useful runtime feature when you want to reach a particular
+    code location instantly. GUI debuggers provide instant breakpoint
+    settings by clicking on execution lines. Zoompoints are created for the
+    same purpose, but their usage is more feature rich.
+
+     EXAMPLE:
+
+     zoompoint works the same way if you are able to do the below
+     b /pat  (set a breakpoint when a line matches with "pat")
+     c       (continue to that "pat")
+
+    Differences between breakpoint & zoompoint?
+
+     Breakpoints
+
+    breakpoints are used to set markers on subroutines or line numbers so
+    you may jump into the code to debug quickly.
+
+      illustration: go to new york city (subroutine)
+
+      illustration: go to zipcode, new york city (line no)
+
+     Zoompoints
+
+    zoompoints work the same way, but work on the actual line (regex), or
+    surrounding lines. It doesn't set markers, but scans for the regex in
+    runtime.
+
+      illustration: stop me if you find starbucks on the way (line regex)
+
+      illustration: stop me if you find times square on the way (bookmark),
+      because i know there is a starbucks near by.
+
+     Illustration:
+  
+     sub newyorkcity {
+      my ($var) = @_;
+       foreach $lane (1..100) { 
+           $string = $lane . 'something';
+       }
+       $starbucks = "starbucks in newyork, 21st st\n";
+       $starbucks = "starbucks in newyork, 22nd st\n";
+       $macys = "10";
+       @sears = qw(1 2 3 4);
+      # TIMES SQUARE
+       $starbucks = "starbucks in newyork, 47th st\n";
+       print "$starbucks \n";
+     }
+
+     sub sanjosecity {
+      my ($var) = @_;
+       foreach $lane (1..100) { 
+           $string = $lane . 'something';
+       }
+       $macys = "10";
+       @sears = qw(1 2 3 4);
+       $starbucks = "starbucks in sanjose, 20th st\n";
+       print "$starbucks \n";
+     }
+
+     sanjosecity();
+     newyorkcity();
+
+    Let's start with breakpoints ?
+
+      Lets assume, that you wanted to go to starbucks on 47nd st, new york city. So
+     > b newyorkcity
+     > c
+     > s or n or set breakpoint set line no of starbucks
+      to reach to the line.
+
+    Let's check with zoompoints ?
+
+     simple zoompoint to the above will be 
+
+    case a.
+
+     set zw 0,0
+     z /starbucks
+     >> $starbucks = "starbucks in sanjose, 20th st\n";
+     z (zoom repeatedly)
+     >> $starbucks = "starbucks in newyork, 21st st\n";
+     >> $starbucks = "starbucks in newyork, 22nd st\n";
+     >> $starbucks = "starbucks in newyork, 47th st\n";
+
+    Now, you know why you couldn't hit the starbucks on 47th st directly,
+    because the pattern is abstract and not expressive. So it took more
+    steps to reach there.
+
+    case b.
+
+     set zw 0,0
+     z /starbucks in newyork
+     >> $starbucks = "starbucks in newyork, 21st st\n";
+     >> $starbucks = "starbucks in newyork, 22nd st\n";
+     >> $starbucks = "starbucks in newyork, 47th st\n";
+
+    This time you are more expressive and you hit the city, at least. It's
+    also true that you cannot always be more expressive like "starbucks in
+    newyork, 47th st". People want to be abstract and still get relevant
+    results, so see case c.
+
+    case c.
+
+     set zw -1,0
+     z /TIMESQUARE
+     >> $starbucks = "starbucks in newyork, 47th st\n"
+
+    sometimes if you are not able to more expressive, you could use the
+    bookmarks (available or create one). zoom will get you there if the same
+    is visible in the zoom window.
+
+    what is zoom window ? zoom window is size of the zoom glass represented
+    by -1,0 -1 - no of lines to check before the exec line. 0 - no of lines
+    to check after the exec line.
+
+    you could set the zoom window by set zw -1,0 or 'zwindow' => '-1,0' in
+    preferences
+
+    I would rather use breakpoint instead of all these?
+
+    True. if you know how to handle these with breakpoints, it'd be the
+    better idea. but i have highlighted simple example to illustrate the
+    idea. Think about a scenario where it is extremely complex, and the
+    process is forked... evaled... many times, and finally a small piece of
+    code is executed which you want to debug. Defining breakpoints will be
+    cumbersome here Instead, tell zoom where "this pattern occurs", or zoom
+    where "bookmark" is visible. In many cases, setting a bookmark with your
+    name ex.# KARTHI will make sense for the context. By hitting zoom you
+    will reach right there.
+
+Do you want to set your own boundaries for debugging ?
+    Ans. Boundary
+
+    Debugging is a recursive process. Often times, you'll have a large code
+    base where you have used your modules and also CPAN modules. So, how can
+    you restrict yourself to debugging your modules alone? It should be as
+    simple as skipping module code if the filename contains 'lib/perl5'
+    (considered CPAN). This sets boundaries in debugging, so that debugging
+    becomes easier. If it is easier for you to define postive conditions use
+    'show', and for negative conditions use 'skip'.
+
+     Configuration
+
+        'boundary'   =>  {        # Boundary
+          'show'     =>  {        # Show
+           'files'   =>  [ '', ], # bs.1
+           'packs'   =>  [ '', ], # bs.2
+           'subs'    =>  [ '', ], # bs.3
+          },
+          'skip'     =>  {        # Skip
+           'files'   =>  [ '', ], # bs.4
+           'packs'   =>  [ '', ], # bs.5
+           'subs'    =>  [ '', ], # bs.6
+           },
+         }
+
+     # bs.1 boundary - show all matching files
+     # bs.2 boundary - show all matching packages
+     # bs.3 boundary - show all matching subs
+     # bs.4 boundary - skip all matching files 
+     # bs.5 boundary - skip all matching packages
+     # bs.6 boundary - skip all matching subs
+
+Want more choices in debugging forked process ?
+    Ans. Custom forktty mode
+
+    Debugging a forked process is always a challenge. There are already some
+    solutions using the xterm method, where the parent spawns xterms and
+    associates child process with a new tty. But, not everyone uses xterm
+    for debugging. Most people ssh/telnet to work from a remote location and
+    often don't use X windows or xterm applications. sdb can provide a way
+    of debugging the forked process without xterm.
+
+      Configuration
+
+        'forktty' => {      
+          'mode'     => 0,
+          'tmpdir'   => "$ENV{HOME}/.sdb/fork/", 
+         },
+
+      mode = 0 (default), 1 (custom)
+      tmpdir - custom fork mode requires tmpdir
+
+      mode 0 - default behaviour as perl debugger (xterm, os2)
+
+      mode = 1 ?
+
+    It's more likely that you want to debug a forked process which has more
+    than one child. If you are not comforatble with xterm or it is not
+    available, try to accomplish this with any kind of tty. The trick here
+    is that the parent doesn't create the ttys, and knows about only some
+    file locations. The user creates tty whichever way he wants, and maps
+    each session to a child. Its like going into a session and saying I'm
+    child 1, give the control to me for child 1. This is the same way for
+    the rest of ttys. Though, it's not as simple as xterm where you don't
+    have worry about the creation. It something you can use it, when you
+    left with no options.
+
+     how to setup?
+      a. create sessions (xterm, ssh, telnet, screen, ...)
+            create sessions whicever way you want (e.x 3 sessions)
+      b. go the all child session and run script sdbchild.sh
+           session 1 (run script sdbchild.sh 1)
+           waiting for child 1 (sleeping)
+
+           session 2 (run script sdbchild.sh 2)
+           waiting for child 2 (sleeping)
+
+           session 3 (run script sdbchild.sh 3)
+           waiting for child 3 (sleeping)
+
+      c. run the parent with sdb enabled.
+
+     script to map the child tty with dummy files
+ 
+     sdbchild.sh :
+     ln -sf `tty` $HOME/.sdb/fork/tty$1
+     echo "waiting for child $1 (sleeping)";
+     sleep 100000;
+
+    Example: parent.pl
+
+     package main;
+     foreach $child (1..3) {
+        my $pid = fork;
+        if( defined($pid) && ($pid == 0) ) {
+          print "i am child $child \n";
+          foreach $index (1..10) {
+           print "i am child $child --- $index \n";
+          }
+          exit;
+        } elsif($pid) {
+          print "i am parent forked $pid \n";
+          next;
+        } elsif( $! =~ m/No\s+more\s+process/ ) {
+          sleep 2;
+          next;
+        } else {
+          warn "fork() failed";
+          return undef;
+        }
+     }
+
+    Running the parent:
+
+      setenv SDB_PREF "$HOME/.sdb/pref.conf"
+      perl -d:sdb parent.pl
+
+    once forked, you will see the child running the child session.
+
+    Understandably, this is not as easy as xterm, but the feature is
+    available if you need it.
+
+    There is also a hidden mode. When mode is set to 0 and doesn't find the
+    xterm tty or os2 tty it goes into single mode. This means that the child
+    shares the same tty as the parent. Output gets overlapped. But, when the
+    single child process is forked and the parent dies after forking, you
+    will find this useful, since you don't want to deal with one more tty.
+    There is no way to enable this functionality explictly.
+
+So, you want your debugger look pretty?
+    Ans. Syntax Highlight
+
+    There is the option to enable syntax highlighting in the sdb debugger.
+    All you have to do is setup your own colorizer module and enable the
+    module syntax in preferences. Once properly setup, you will see the
+    debugger output as highlighted text. This gives an editor kind of feel
+    and is colorful... code and data are easily decipherable.
+
+     Configuration
+
+        'syntax' =>  {            
+          'mode'     => 0,       
+          'tmpdir'   => "$ENV{HOME}/.sdb/syntax/", 
+          'command'  => 'cat %f | perl -I ~ ~/viewperl.pl'
+         },
+
+      mode = 0 (no highlight), 1 (highlight)
+      tmpdir - syntax highlight requires tmpdir
+      command - syntax highlight command, %f for internal.
+ 
+    If you have some problems in a solaris version, in normal mode where
+    data is not rendering, set the below and try
+
+        'syntax' =>  {            
+          'mode'     => 1,       
+          'tmpdir'   => "$ENV{HOME}/.sdb/syntax/", 
+          'command'  => 'cat %f',
+         },
+
+    you can get the syntax highlight working by setting up the colorizer.
+    For Perl, there is module already which you can use.
+
+     Syntax::Highlight::Perl::Improved
+
+    Install this module (there is no dependency, straight forward), even if
+    you are not allowed to install in the system, have only Improved.pm in
+    your path. The package comes with viewperl.pl which uses Improved.pm to
+    generated the highlighted output. Set this up correctly and ensure the
+    same is working on a sample perl code, then you can plug it into sdb as
+    below.
+
+          'command'  => 'cat %f | perl -I ~ ~/viewperl.pl'
+          # %f will be replaced by sdb internally by the temp files.
+
+    Note: syntax highlighting takes 1 or 2 seconds to render. But, the
+    nonsyntax mode is faster. If anybody knows how to improve the
+    Improved.pm :) it will be much helpful.
+
+Don't want to do everything inside the debugger?
+    Ans. Debug preferences (SDB_PREF)
+
+    Often, you'll know what you want to debug even before you start
+    debugging, and also what your preferences are. Debug preferences help
+    you define the same outside the of the debugger and get initialised when
+    the debugger starts. Some of the features can be overridden during run
+    time. (Note: SDB uses the default preferences defined inside sdb.pm,
+    where there is no SDB_PREF defined. This is good most of the time. If
+    you want set your own preferences and maintain them separately, you
+    should use SDB_PREF)
+
+     Configuration
+
+     environ
+     SDB_PREF "$HOME/.sdb/pref.conf"
+
+     preferences (static)
+        $config = {
+        'code'   =>  {            # Code
+          'window'  => '-8,20',   # c.1
+          'zwindow' => '-1,0',    # c.2
+          'caller'   => '0',      # c.3
+          'comments' => '1',      # c.4
+          'warnings' => '1',      # c.5
+          'padcode'  => '1',      # c.6
+          'quickexit'=> '1',      # c.7
+         },
+        'data'   =>  {            # Data
+          'render'   => '1',      # d.1
+          'subexp'   => '1',      # d.2
+          'mode'     => '10',     # d.3
+          'skip'     =>  [ '', ], # d.4 
+         },
+
+        'breakpt'    =>  {        # Breakpoints
+          'b'         => [ '', ], # b.1
+          'b_load'    => [ '', ], # b.2
+          'b_compile' => [ '', ], # b.3
+          'b_postpone'=> [ '', ], # b.4
+         },
+        'boundary'   =>  {        # Boundary
+          'show'     =>  {        # Show
+           'files'   =>  [ '', ], # bs.1
+           'packs'   =>  [ '', ], # bs.2
+           'subs'    =>  [ '', ], # bs.3
+          },
+          'skip'     =>  {        # Skip
+           'files'   =>  [ '', ], # bs.3
+           'packs'   =>  [ '', ], # bs.4
+           'subs'    =>  [ '', ], # bs.5
+           },
+         },
+        'forktty' => {            # Fork
+          'mode'     => 0,        # f.1
+          'tmpdir'   => "$ENV{HOME}/.sdb/fork/", # f.2
+         },
+        'syntax' =>  {            # Syntax
+          'mode'     => 0,        # s.1
+          'tmpdir'   => "$ENV{HOME}/.sdb/syntax/",  # s.2
+          'command'  => 'cat %f | perl -I ~ ~/viewperl.pl'
+         },
+        };
+
+     # c.1 code window size -8 (pre), 20 (post)
+     # c.2 zoom window size -1 (pre), 0 (post)
+     # c.3 boolean to show/skip caller segment
+     # c.4 boolean to show/skip comments in code segment
+     # c.5 boolean to show/skip warnings while debug
+     # c.6 boolean to show/skip file,sub,line no while debug
+     # c.7 boolean to show/skip cleanup while debug
+     # d.1 boolean to render data segment
+     # d.2 boolean to render sub expressions
+     # d.3 flag to set dumper mode and depth
+     # d.4 variables list to skip in data segment
+     # b.1 sdb style flexible breakpoints for subroutine
+     # b.2 sdb style flexible breakpoints for "b load"
+     # b.3 sdb style flexible breakpoints for "b compile"
+     # b.4 sdb style flexible breakpoints for "b postpone"
+     # bs.1 boundary - show all matching files
+     # bs.2 boundary - show all matching packages
+     # bs.3 boundary - show all matching subs
+     # bs.4 boundary - skip all matching files 
+     # bs.5 boundary - skip all matching packages
+     # bs.6 boundary - skip all matching subs
+     # f.1 forktty mode  0 - default, 1 (custom)
+     # f.2 tmpdir - used by the custom mode
+     # s.1 syntax highlight 0 - default, 1 (higlight)
+     # s.2 tmpdir - used for syntax highlight
+     # s.3 command - colorizer command to run 
+
+FAQ - Debugger Unleashed
+Lets talk problems...
+    It has become very common that we build things on top of some existing
+    system. Nobody wants to reinvent the wheel or start from scratch. So we
+    often copy/paste the code to modify or build a new system. Not only
+    that, people involved in maintaining the application are relatively
+    high-level compared to whoever developed it. So very often we have to
+    enhance the exsiting system or support the same. So it becomes an
+    inherent necessity to understand the existing code.
+
+    lets try to explore some common techniques that we can use to understand
+    the code
+
+      a. comments in the code (describing the logic)
+      b. logs (data elements captured in runtime)
+      c. test cases and etc.
+
+  What are comments ?
+    Comments are a piece of natural language (mostly english) to describe
+    the logic implemented in programming language. So what is good about
+    comments? Comments are really helpful for understanding code, as often
+    comments can be used for high level description of the logic. Then,
+    what's bad? If we have to comment every single line, the code will be
+    untidy and often doesn't serve its purpose. Point being: just because
+    it's in english, doesn't mean that we can understand what it means. Why
+    you cannot understand english? Just as everybody has their own style of
+    programming, they have their style of commenting too. You can find a 20
+    line comment for 5 lines of code or a two line comment for 30 lines of
+    code. sometimes both make sense, but many times not. I know people who
+    write very elegant code, but don't comment at all. There could be
+    multiple reasons for the same (like there is no thrill in writing
+    comments, lack of time or purposely not commenting (job security)) or
+    very little comments about the logic, most of the time the comments will
+    be short and cryptic for the intial developer's reference. Not
+    surprisingly, many people don't trust comments and trust only the code
+    because thats the thing which works :)
+
+  What's logging?
+    Logging is a method of capturing the runtime data into a file for later
+    debugging/troubleshooting. Logs are often useful for understanding where
+    exactly some problem occured(which part of the program), and the
+    supporting details to understand why the problem occured. Often, people
+    confuse debug logs with error logs. Error logs are a permanent part of
+    the program which are used to log details for later debugging. Debug
+    logs are a temporary part of the program which get introduced when error
+    logs don't help in understanding/solving the problem. Debug logs often
+    become a permanent part of program if we don't have proper method to
+    disable or remove them. That's why logs become huge and often unhelpful
+    because of so many details. Debugging via log comments is an iterative
+    process. Some people begin debugging near the problem or go one level up
+    and repeat the process until the problem is identified. Others start
+    from the top and traverse the entire process until the problem is
+    identified. In both cases, debug logs get introduced at every level
+    during iterative runs of a program to generate logs for problem
+    identification.
+
+  What's code?
+    This is the real problem creator. Sometimes, we understand code poorly.
+    Everybody has their own creativity and level of understanding, so there
+    are many ways of programming things and many coding styles. When we try
+    understand others' code, we often take the help of program logs and
+    debug print statements and the power of our IMAGINATION. Imagination is
+    sometimes born with an evil brother ASSUMPTION, which gets us into a lot
+    of trouble. :) Coding standards can help, how often do they really
+    succeeded?
+
+  then, how do we solve the problem of understanding others' code?
+    Solving a problem via the above can be exponential because it involves
+    individual responsibility. Sometimes the solution to understanding
+    language design is using the debugger.
+
+  So, what's debugger?
+    This provides a platform for you to find bugs and understand code flow
+    when above options don't help you very much. Debuggers are often very
+    interactive: if you talk to it, it talks back. If you want something,
+    the debugger finds it and gives it for you. Unfortunately this works
+    similarly as most languages.
+
+Lets talk solutions...
+  Smart debugger?
+    Smart debugger understands the very purpose of debugging and most common
+    needs. So, it provides details proactively, which helps you to
+    understand code flow quickly. Often, you may not know how a simple thing
+    is being implemented if it is done in a very complex way. Smart debugger
+    was created with those situations in mind.
+
+  What are smart debugger features?
+    higlevel
+
+     a. data rendering.
+     b. code window/markers
+     c. flexible breakpoints.
+     d. zoom points for bookmarks/line regex.
+     e. debugging boundaries.
+     f. custom mode for debugging forked process.
+     g. syntax highlight
+     h. debug preferences for instant debugging.
+
+    lowlevel
+
+     a. code window size.
+     b. display comments.
+     c. display caller.
+     d. padding the code with program, line no
+     e. boundary show logic
+     f. boundary skip logic
+
+Smart Debugger, Not a Magic Debugger?
+    Smart Debugger is proactive enough to provide necessary details on the
+    fly. However, do not expect it to always work on one liners or
+    obfuscated code. Don't forget that a small percentage of discipline is
+    in the coding. The Smart debugger can be used for mod_perl applications,
+    but I'm not sure about the embedded perl applications...
+
+PERL5DB COMMANDS
+    SDB is built on top of perl default debugger. So the perl debugger
+    commands also available. To distinguish easily the sdb commands, all the
+    commands starts with "set" except "list" and "z".
+
+KNOWN BUGS
+     a. lexical parse of very complex variable expressions can fail.
+     b. unable to differentiate modulus (%) operator with hash (%) operator.
+     c. no support for glob data type in data rendering.
+     d. in some cases, ctrl-c only exits debugger. 
+     e. debugger inside emacs is not supported.
+
+DEPENDENCY
+    Data::Dumper, IO::Handle
+
+VERSION
+    Version 0.01
+
+CONCEPT
+    Smart Debugging is a concept more than just a tool in perl. I
+    implemented this first in perl, since perl is closer to my heart. this
+    applies for any scripting/programming languages including C, Python,
+    Ruby ..
+
+SEE ALSO
+    perldebug(1), Devel::ptkdb
+
+AUTHOR
+    Karthikeyan Rajaram karthi_ir@yahoo.com
+
+    Copyright (c) 2007-08 Karthikeyan Rajaram. All rights reserved. This
+    program is free software; you can redistribute it and/or modify it under
+    the same terms as Perl itself.
+
